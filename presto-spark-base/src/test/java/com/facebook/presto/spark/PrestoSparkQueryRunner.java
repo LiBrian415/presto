@@ -241,7 +241,10 @@ public class PrestoSparkQueryRunner
                         .putAll(hiveProperties)
                         .put("hive.experimental-optimized-partition-update-serialization-enabled", "true")
                         .build(),
-                ImmutableMap.of(),
+                ImmutableMap.of(
+//                        "spark.kryoserializer.buffer.max.mb", "512",
+//                        "spark.driver.maxResultSize", "32G"
+                ),
                 dataDirectory,
                 ImmutableList.of(),
                 DEFAULT_AVAILABLE_CPU_COUNT);

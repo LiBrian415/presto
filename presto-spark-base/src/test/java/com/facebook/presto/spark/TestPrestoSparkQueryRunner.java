@@ -31,14 +31,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
-import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static com.facebook.presto.SystemSessionProperties.PARTIAL_MERGE_PUSHDOWN_STRATEGY;
-import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
-import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY_PER_NODE;
-import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_STAGE_COUNT;
-import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_TOTAL_MEMORY_PER_NODE;
-import static com.facebook.presto.SystemSessionProperties.VERBOSE_EXCEEDED_MEMORY_LIMIT_ERRORS_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.*;
 import static com.facebook.presto.spark.PrestoSparkQueryRunner.METASTORE_CONTEXT;
 import static com.facebook.presto.spark.PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.OUT_OF_MEMORY_RETRY_PRESTO_SESSION_PROPERTIES;
@@ -1486,6 +1479,51 @@ public class TestPrestoSparkQueryRunner
                 .setSystemProperty(SPARK_QUERY_EXECUTION_STRATEGIES, "INCREASE_HASH_PARTITION_COUNT")
                 .build();
         assertQuerySucceeds(session, query);
+    }
+
+    @Test
+    public void testCteMaterialization() {
+        Session session = Session.builder(super.getSession())
+//                .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "ALL")
+//                .setSystemProperty(CTE_PARTITIONING_PROVIDER_CATALOG, "hive")
+                .build();
+
+        String q15 = "with revenue_view as (\n" +
+                "  select\n" +
+                "    l.suppkey as supplier_no,\n" +
+                "    sum(l.extendedprice * (1 - l.discount)) as total_revenue\n" +
+                "  from\n" +
+                "    lineitem l \n" +
+                "  where\n" +
+                "    DATE(l.shipdate) >= DATE('1996-01-01')\n" +
+                "    and DATE(l.shipdate) < DATE('1996-04-01')\n" +
+                "  group by\n" +
+                "    l.suppkey)\n" +
+                "select\n" +
+                "  s.suppkey,\n" +
+                "  s.name,\n" +
+                "  s.address,\n" +
+                "  s.phone,\n" +
+                "  total_revenue\n" +
+                "from\n" +
+                "  supplier s,\n" +
+                "  revenue_view r\n" +
+                "where\n" +
+                "  s.suppkey = supplier_no\n" +
+                "  and total_revenue = (\n" +
+                "    select\n" +
+                "      max(total_revenue)\n" +
+                "    from\n" +
+                "      revenue_view\n" +
+                "    )\n" +
+                "order by\n" +
+                "  s.suppkey";
+
+        MaterializedResult result = getQueryRunner().execute(
+                session,
+                q15);
+
+        while(true) {}
     }
 
     private void assertBucketedQuery(String sql)

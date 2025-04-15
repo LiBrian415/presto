@@ -22,6 +22,7 @@ import org.apache.spark.ShuffleDependency;
 import org.apache.spark.SparkException;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.rdd.RDD;
+import org.apache.spark.storage.StorageLevel;
 import scala.Tuple2;
 import scala.collection.JavaConverters;
 
@@ -65,10 +66,12 @@ public class RddAndMore<T extends PrestoSparkTaskOutput>
     public List<Tuple2<MutablePartitionId, T>> collectAndDestroyDependenciesWithTimeout(long timeout, TimeUnit timeUnit, Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics)
             throws SparkException, TimeoutException
     {
-        checkState(!collected, "already collected");
+        // TODO: technically, if the cached rdd was evicted, we'll probably need the broadcast dependencies again, so
+        //  should use some atomic counter of references
+//        rdd.persist(StorageLevel.MEMORY_AND_DISK());
         collected = true;
         List<Tuple2<MutablePartitionId, T>> result = getActionResultWithTimeout(rdd.collectAsync(), timeout, timeUnit, waitTimeMetrics);
-        broadcastDependencies.forEach(PrestoSparkBroadcastDependency::destroy);
+//        broadcastDependencies.forEach(PrestoSparkBroadcastDependency::destroy);
         return result;
     }
 

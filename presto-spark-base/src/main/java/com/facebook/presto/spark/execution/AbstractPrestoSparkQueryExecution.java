@@ -210,6 +210,7 @@ public abstract class AbstractPrestoSparkQueryExecution
     @GuardedBy("this")
     private final Map<PlanFragmentId, RddAndMore> fragmentIdToRdd = new HashMap<>();
     private final Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector;
+    private final Map<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> seenExchange = new HashMap<>();
 
     public AbstractPrestoSparkQueryExecution(
             JavaSparkContext sparkContext,
@@ -546,7 +547,14 @@ public abstract class AbstractPrestoSparkQueryExecution
             }
             else {
                 RddAndMore<PrestoSparkMutableRow> childRdd = createRdd(child, PrestoSparkMutableRow.class, tableWriteInfo);
-                rddInputs.put(childFragment.getId(), partitionBy(childFragment.getId().getId(), childRdd.getRdd(), child.getFragment().getPartitioningScheme()));
+                if (childFragment.getId().equals(new PlanFragmentId(6)))  {
+                    rddInputs.put(childFragment.getId(), seenExchange.get(new PlanFragmentId(3)));
+                } else {
+                    PlanFragmentId fragmentId = childFragment.getId();
+                    JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow> partitioned = partitionBy(childFragment.getId().getId(), childRdd.getRdd(), child.getFragment().getPartitioningScheme());
+                    seenExchange.put(fragmentId, partitioned);
+                    rddInputs.put(fragmentId, partitioned);
+                }
                 broadcastDependencies.addAll(childRdd.getBroadcastDependencies());
             }
         }
